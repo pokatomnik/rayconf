@@ -37,10 +37,7 @@ impl Config {
     pub fn list(&self) -> Vec<&XRayServer> {
         self.server_urls.iter().collect()
     }
-}
 
-// Environment-dependent implementations
-impl Config {
     fn home_dir() -> Option<PathBuf> {
         std::env::home_dir()
     }
