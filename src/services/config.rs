@@ -19,7 +19,7 @@ impl Config {
         self.try_write()
     }
 
-    pub fn remove(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
+    pub fn remove_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
         let hs = HashSet::<usize>::from_iter(indexes);
         self.server_urls = self
             .server_urls
