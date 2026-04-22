@@ -1,4 +1,5 @@
 use crate::cmd::add::AddParams;
+use crate::cmd::remote::RemoteParams;
 use crate::cmd::remove::RemoveParams;
 use crate::cmd::select::SelectParams;
 use clap::Subcommand;
@@ -13,4 +14,7 @@ pub(crate) enum Commands {
 
     #[clap(visible_aliases = ["s", "choose"], about = "Select server")]
     Select(SelectParams),
+
+    /// Remote URLs (subscription link)
+    Remote(RemoteParams),
 }

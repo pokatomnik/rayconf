@@ -22,7 +22,7 @@ impl AddParams {
             eprintln!("URL not specified or can't be parsed");
             return Ok(());
         };
-        repo.add(url)?;
+        repo.add_local(url)?;
         Ok(())
     }
 }

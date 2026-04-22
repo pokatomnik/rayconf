@@ -14,6 +14,7 @@ fn main() {
         Commands::Add(add_params) => add_params.add(),
         Commands::Delete(delete_params) => delete_params.remove(),
         Commands::Select(select_params) => select_params.select(),
+        Commands::Remote(remote_params) => remote_params.handle_action(),
     };
 
     if let Err(error) = error {

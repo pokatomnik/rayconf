@@ -1,3 +1,5 @@
+use crate::entities::remote::Remote;
+use crate::entities::remote_decoder::RemoteDecoder;
 use crate::entities::xray_server::XRayServer;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -8,18 +10,34 @@ static DEFAULT_CONFIG_FILE_NAME: &'static str = ".rayconf.json";
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(crate) struct Config {
     #[serde(rename = "serverURLs")]
-    pub(crate) server_urls: Vec<XRayServer>,
+    server_urls: Vec<XRayServer>,
+
+    #[serde(rename = "remotes")]
+    remotes: Vec<Remote>,
 }
 
 impl Config {
-    pub fn add(&mut self, url: impl AsRef<str>) -> anyhow::Result<()> {
+    pub fn add_local(&mut self, url: impl AsRef<str>) -> anyhow::Result<()> {
         let url = XRayServer::try_from(url.as_ref().to_owned())?;
         self.server_urls.push(url);
 
         self.try_write()
     }
 
-    pub fn remove_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
+    pub fn add_remote(
+        &mut self,
+        name: impl AsRef<str>,
+        url: impl AsRef<str>,
+        decoder: impl AsRef<RemoteDecoder>,
+    ) -> anyhow::Result<()> {
+        let remote = Remote::new(name.as_ref(), url.as_ref(), decoder.as_ref().clone());
+
+        self.remotes.push(remote);
+
+        self.try_write()
+    }
+
+    pub fn remove_locals_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
         let hs = HashSet::<usize>::from_iter(indexes);
         self.server_urls = self
             .server_urls
@@ -34,8 +52,27 @@ impl Config {
         self.try_write()
     }
 
-    pub fn list(&self) -> Vec<&XRayServer> {
+    pub fn remove_remote_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
+        let hs = HashSet::<usize>::from_iter(indexes);
+        self.remotes = self
+            .remotes
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, item)| match hs.contains(&idx) {
+                true => None,
+                false => Some(item.clone()),
+            })
+            .collect();
+
+        self.try_write()
+    }
+
+    pub fn server_urls(&self) -> Vec<&XRayServer> {
         self.server_urls.iter().collect()
+    }
+
+    pub fn remotes(&self) -> Vec<&Remote> {
+        self.remotes.iter().collect()
     }
 
     fn home_dir() -> Option<PathBuf> {

@@ -8,9 +8,14 @@ pub(crate) struct RemoveParams;
 impl RemoveParams {
     pub fn remove(&self) -> anyhow::Result<()> {
         let mut repo: Config = Config::read_or_default();
-        let items: Vec<XRayServer> = repo.list().into_iter().map(ToOwned::to_owned).collect();
+        let items: Vec<XRayServer> = repo
+            .server_urls()
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect();
         let indexes = dialoguer::MultiSelect::new()
             .with_prompt("Select XRay server URLs to remove")
+            .clear(true)
             .items(items)
             .interact();
 
@@ -19,7 +24,7 @@ impl RemoveParams {
             return Ok(());
         };
 
-        repo.remove_by_indexes(indexes)?;
+        repo.remove_locals_by_indexes(indexes)?;
 
         Ok(())
     }
