@@ -1,7 +1,7 @@
 use crate::cmd::add::AddParams;
 use crate::cmd::remove::RemoveParams;
 use crate::cmd::select::SelectParams;
-use clap::{Subcommand};
+use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 pub(crate) enum Commands {
@@ -12,5 +12,5 @@ pub(crate) enum Commands {
     Delete(RemoveParams),
 
     #[clap(visible_aliases = ["s", "choose"], about = "Select server")]
-    Select(SelectParams)
+    Select(SelectParams),
 }

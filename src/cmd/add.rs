@@ -1,6 +1,6 @@
+use crate::services::config::Config;
 use clap::Args;
 use url::Url;
-use crate::services::config::Config;
 
 #[derive(Debug, Args)]
 pub(crate) struct AddParams {
@@ -13,7 +13,10 @@ impl AddParams {
         let mut repo: Config = Config::read_or_default();
         let url = match self.url {
             Some(ref url) => Some(url.to_owned()),
-            None => dialoguer::Input::new().interact_text().ok(),
+            None => dialoguer::Input::new()
+                .with_prompt("Specify a new XRay outbound URL")
+                .interact_text()
+                .ok(),
         };
         let Some(url) = url else {
             eprintln!("URL not specified or can't be parsed");

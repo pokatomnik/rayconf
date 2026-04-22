@@ -5,6 +5,7 @@ use clap::Parser;
 mod cmd;
 mod entities;
 mod services;
+mod utils;
 
 fn main() {
     let cli = Cli::parse();
