@@ -6,6 +6,7 @@ mod cmd;
 mod entities;
 mod services;
 mod utils;
+mod v2parser;
 
 fn main() {
     let cli = Cli::parse();

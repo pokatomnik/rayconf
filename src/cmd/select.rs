@@ -2,17 +2,32 @@ use crate::entities::remote::Remote;
 use crate::entities::xray_server::XRayServer;
 use crate::services::config::Config;
 use crate::utils::tap::Tap;
+use crate::v2parser::parser::create_json_config;
 use clap::Args;
 use reqwest::blocking::Client;
 
+static DEFAULT_HTTP_PORT: u16 = 8080;
+static DEFAULT_SOCKS_PORT: u16 = 1080;
+
 #[derive(Debug, Args)]
 pub(crate) struct SelectParams {
-    #[arg(long, short, default_value_t = false, help = "Should use subscription servers")]
+    #[arg(
+        long,
+        short,
+        default_value_t = false,
+        help = "Should use subscription servers"
+    )]
     remote: bool,
+
+    #[arg(long, conflicts_with = "http_port", help = format!("SOCKS5 port, default: {DEFAULT_SOCKS_PORT}"))]
+    socks_port: Option<u16>,
+
+    #[arg(long, conflicts_with = "socks_port", help = format!("HTTP port, default: {DEFAULT_HTTP_PORT}"))]
+    http_port: Option<u16>,
 }
 
 impl SelectParams {
-    fn select_local(&self) -> anyhow::Result<()> {
+    fn select_local(&self) -> anyhow::Result<String> {
         let config = Config::read_or_default();
         let items: Vec<XRayServer> = config
             .server_urls()
@@ -35,15 +50,13 @@ impl SelectParams {
             .interact()?;
         let server_urls = config.server_urls();
         let Some(item) = server_urls.get(idx) else {
-            eprintln!("No server url selected");
-            return Ok(());
+            return Err(anyhow::Error::msg("No server url selected"));
         };
-        println!("{}", &item.url().to_string());
 
-        Ok(())
+        Ok(item.url().to_string())
     }
 
-    fn select_remote(&self) -> anyhow::Result<()> {
+    fn select_remote(&self) -> anyhow::Result<String> {
         let config = Config::read_or_default();
         let remotes: Vec<Remote> = config
             .remotes()
@@ -97,15 +110,36 @@ impl SelectParams {
             .get(server_idx)
             .ok_or_else(|| anyhow::Error::msg("No XRay server selected"))?;
 
-        println!("{}", &selected_xray_server.url().to_string());
-
-        Ok(())
+        Ok(selected_xray_server.url().to_string())
     }
 
     pub fn select(&self) -> anyhow::Result<()> {
-        match self.remote {
+        let result = match self.remote {
             true => self.select_remote(),
             false => self.select_local(),
-        }
+        };
+
+        let Ok(url) = result else {
+            eprintln!("No URL selected");
+            return Ok(());
+        };
+
+        let socks_port = match (self.socks_port, self.http_port) {
+            (None, None) => Some(DEFAULT_SOCKS_PORT),
+            (Some(socks_port), None) | (Some(socks_port), Some(_)) => Some(socks_port),
+            (None, Some(_)) => None,
+        };
+
+        let http_port = match (self.socks_port, self.http_port) {
+            (None, None) => Some(DEFAULT_HTTP_PORT),
+            (Some(_), None) | (Some(_), Some(_)) => None,
+            (None, Some(http_port)) => Some(http_port),
+        };
+
+        let config_json = create_json_config(url.as_str(), socks_port, http_port);
+
+        println!("{}", config_json);
+
+        Ok(())
     }
 }
