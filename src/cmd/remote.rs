@@ -35,6 +35,7 @@ impl RemoteParams {
         let decoder = dialoguer::FuzzySelect::new()
             .with_prompt("Specify remote decoder")
             .items(&decoders)
+            .default(0)
             .interact()?;
         let Some(decoder) = decoders.get(decoder) else {
             return Err(anyhow::Error::msg("Remote decoder does not exist"));
