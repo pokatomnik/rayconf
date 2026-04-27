@@ -2,6 +2,8 @@
 
 [XRay](https://github.com/xtls/xray-core) CLI configurations manager.
 
+[![Rust](https://github.com/pokatomnik/rayconf/actions/workflows/rust.yml/badge.svg)](https://github.com/pokatomnik/rayconf/actions/workflows/rust.yml)
+
 # The WHY
 There are a lot of apps such as [Happ](https://github.com/Happ-proxy/happ-desktop), [v2raytun](https://github.com/mdf45/v2raytun/) and others. They have a nice Graphical UI, but if you prefer the original XRay CLI app you have to manage configurations by yourself.
 In common, you have a subscription link or an outbound link like:
