@@ -131,8 +131,7 @@ impl SelectParams {
         };
 
         let http_port = match (self.socks_port, self.http_port) {
-            (None, None) => Some(DEFAULT_HTTP_PORT),
-            (Some(_), None) | (Some(_), Some(_)) => None,
+            (Some(_), None) | (Some(_), Some(_)) | (None, None) => None,
             (None, Some(http_port)) => Some(http_port),
         };
 
