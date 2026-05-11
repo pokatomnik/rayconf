@@ -18,8 +18,8 @@ pub(crate) struct RemoteParams {
 }
 
 impl RemoteParams {
-    fn handle_add(&self) -> anyhow::Result<()> {
-        let mut config = Config::read_or_default();
+    async fn handle_add(&self) -> anyhow::Result<()> {
+        let mut config = Config::read_or_default().await;
 
         let title: String = dialoguer::Input::new()
             .with_prompt("Specify remote alias")
@@ -41,22 +41,22 @@ impl RemoteParams {
             return Err(anyhow::Error::msg("Remote decoder does not exist"));
         };
 
-        config.add_remote(title, url, decoder)?;
+        config.add_remote(title, url, decoder).await?;
 
         Ok(())
     }
 
-    fn handle_remove(&self) -> anyhow::Result<()> {
-        let mut config = Config::read_or_default();
+    async fn handle_remove(&self) -> anyhow::Result<()> {
+        let mut config = Config::read_or_default().await;
         let remove_idx = dialoguer::FuzzySelect::new()
             .with_prompt("Select remote")
             .items(config.remotes())
             .interact()?;
-        config.remove_remote_by_indexes(vec![remove_idx])
+        config.remove_remote_by_indexes(vec![remove_idx]).await
     }
 
-    fn handle_list(&self) -> anyhow::Result<()> {
-        let config = Config::read_or_default();
+    async fn handle_list(&self) -> anyhow::Result<()> {
+        let config = Config::read_or_default().await;
         let remotes = config.remotes();
         if remotes.is_empty() {
             return Err(anyhow::Error::msg("No remote found"));
@@ -68,11 +68,11 @@ impl RemoteParams {
         Ok(())
     }
 
-    pub fn handle_action(&self) -> anyhow::Result<()> {
+    pub async fn handle_action(&self) -> anyhow::Result<()> {
         match &self.action {
-            RemoteAction::Add => self.handle_add(),
-            RemoteAction::Remove => self.handle_remove(),
-            RemoteAction::List => self.handle_list(),
+            RemoteAction::Add => self.handle_add().await,
+            RemoteAction::Remove => self.handle_remove().await,
+            RemoteAction::List => self.handle_list().await,
         }
     }
 }

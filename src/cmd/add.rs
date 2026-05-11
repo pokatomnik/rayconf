@@ -9,8 +9,8 @@ pub(crate) struct AddParams {
 }
 
 impl AddParams {
-    pub fn add(&self) -> anyhow::Result<()> {
-        let mut repo: Config = Config::read_or_default();
+    pub async fn add(&self) -> anyhow::Result<()> {
+        let mut repo: Config = Config::read_or_default().await;
         let url = match self.url {
             Some(ref url) => Some(url.to_owned()),
             None => dialoguer::Input::new()
@@ -22,7 +22,7 @@ impl AddParams {
             eprintln!("URL not specified or can't be parsed");
             return Ok(());
         };
-        repo.add_local(url)?;
+        repo.add_local(url).await?;
         Ok(())
     }
 }

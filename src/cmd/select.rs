@@ -4,7 +4,7 @@ use crate::services::config::Config;
 use crate::utils::tap::Tap;
 use crate::v2parser::parser::create_json_config;
 use clap::Args;
-use reqwest::blocking::Client;
+use reqwest::Client;
 
 static DEFAULT_HTTP_PORT: u16 = 8080;
 static DEFAULT_SOCKS_PORT: u16 = 1080;
@@ -27,8 +27,8 @@ pub(crate) struct SelectParams {
 }
 
 impl SelectParams {
-    fn select_local(&self) -> anyhow::Result<String> {
-        let config = Config::read_or_default();
+    async fn select_local(&self) -> anyhow::Result<String> {
+        let config = Config::read_or_default().await;
         let items: Vec<XRayServer> = config
             .server_urls()
             .into_iter()
@@ -56,8 +56,8 @@ impl SelectParams {
         Ok(item.url().to_string())
     }
 
-    fn select_remote(&self) -> anyhow::Result<String> {
-        let config = Config::read_or_default();
+    async fn select_remote(&self) -> anyhow::Result<String> {
+        let config = Config::read_or_default().await;
         let remotes: Vec<Remote> = config
             .remotes()
             .into_iter()
@@ -84,8 +84,11 @@ impl SelectParams {
         let content = Client::builder()
             .build()?
             .get(selected_remote.url())
-            .send()?
-            .text()?;
+            .send()
+            .await?
+            .text()
+            .await?;
+
         let xray_servers = selected_remote
             .decoder()
             .decode(content)
@@ -113,10 +116,10 @@ impl SelectParams {
         Ok(selected_xray_server.url().to_string())
     }
 
-    pub fn select(&self) -> anyhow::Result<()> {
+    pub async fn select(&self) -> anyhow::Result<()> {
         let result = match self.remote {
-            true => self.select_remote(),
-            false => self.select_local(),
+            true => self.select_remote().await,
+            false => self.select_local().await,
         };
 
         let Ok(url) = result else {
