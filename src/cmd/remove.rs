@@ -6,8 +6,8 @@ use clap::Args;
 pub(crate) struct RemoveParams;
 
 impl RemoveParams {
-    pub fn remove(&self) -> anyhow::Result<()> {
-        let mut repo: Config = Config::read_or_default();
+    pub async fn remove(&self) -> anyhow::Result<()> {
+        let mut repo: Config = Config::read_or_default().await;
         let items: Vec<XRayServer> = repo
             .server_urls()
             .into_iter()
@@ -24,7 +24,7 @@ impl RemoveParams {
             return Ok(());
         };
 
-        repo.remove_locals_by_indexes(indexes)?;
+        repo.remove_locals_by_indexes(indexes).await?;
 
         Ok(())
     }

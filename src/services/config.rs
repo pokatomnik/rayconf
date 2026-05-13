@@ -17,14 +17,14 @@ pub(crate) struct Config {
 }
 
 impl Config {
-    pub fn add_local(&mut self, url: impl AsRef<str>) -> anyhow::Result<()> {
+    pub async fn add_local(&mut self, url: impl AsRef<str>) -> anyhow::Result<()> {
         let url = XRayServer::try_from(url.as_ref().to_owned())?;
         self.server_urls.push(url);
 
-        self.try_write()
+        self.try_write().await
     }
 
-    pub fn add_remote(
+    pub async fn add_remote(
         &mut self,
         name: impl AsRef<str>,
         url: impl AsRef<str>,
@@ -34,10 +34,10 @@ impl Config {
 
         self.remotes.push(remote);
 
-        self.try_write()
+        self.try_write().await
     }
 
-    pub fn remove_locals_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
+    pub async fn remove_locals_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
         let hs = HashSet::<usize>::from_iter(indexes);
         self.server_urls = self
             .server_urls
@@ -49,10 +49,10 @@ impl Config {
             })
             .collect();
 
-        self.try_write()
+        self.try_write().await
     }
 
-    pub fn remove_remote_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
+    pub async fn remove_remote_by_indexes(&mut self, indexes: Vec<usize>) -> anyhow::Result<()> {
         let hs = HashSet::<usize>::from_iter(indexes);
         self.remotes = self
             .remotes
@@ -64,7 +64,7 @@ impl Config {
             })
             .collect();
 
-        self.try_write()
+        self.try_write().await
     }
 
     pub fn server_urls(&self) -> Vec<&XRayServer> {
@@ -84,20 +84,20 @@ impl Config {
         Ok(home_dir.join(DEFAULT_CONFIG_FILE_NAME))
     }
 
-    pub(crate) fn read_or_default() -> Self {
+    pub(crate) async fn read_or_default() -> Self {
         let Ok(config_path) = Self::get_config_path() else {
             return Self::default();
         };
 
-        let Ok(config_str) = std::fs::read_to_string(config_path) else {
+        let Ok(config_str) = tokio::fs::read_to_string(config_path).await else {
             return Self::default();
         };
 
         serde_json::from_str(&config_str).unwrap_or_else(|_| Self::default())
     }
 
-    pub(crate) fn try_write(&self) -> anyhow::Result<()> {
+    pub(crate) async fn try_write(&self) -> anyhow::Result<()> {
         let serialized = serde_json::to_string_pretty(self)?;
-        Ok(std::fs::write(Self::get_config_path()?, serialized)?)
+        Ok(tokio::fs::write(Self::get_config_path()?, serialized).await?)
     }
 }

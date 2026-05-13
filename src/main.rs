@@ -8,14 +8,15 @@ mod services;
 mod utils;
 mod v2parser;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
 
     let error = match cli.command {
-        Commands::Add(add_params) => add_params.add(),
-        Commands::Delete(delete_params) => delete_params.remove(),
-        Commands::Select(select_params) => select_params.select(),
-        Commands::Remote(remote_params) => remote_params.handle_action(),
+        Commands::Add(add_params) => add_params.add().await,
+        Commands::Delete(delete_params) => delete_params.remove().await,
+        Commands::Select(select_params) => select_params.select().await,
+        Commands::Remote(remote_params) => remote_params.handle_action().await,
     };
 
     if let Err(error) = error {
