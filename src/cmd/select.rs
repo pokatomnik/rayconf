@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::process::Stdio;
 use std::time::Duration;
 use std::{cmp::Ordering, collections::HashMap};
 
@@ -10,6 +11,7 @@ use crate::v2parser::parser::create_json_config;
 use clap::Args;
 use futures::{StreamExt, stream};
 use reqwest::Client;
+use tokio::io::AsyncWriteExt;
 
 static DEFAULT_HTTP_PORT: u16 = 8080;
 static DEFAULT_SOCKS_PORT: u16 = 1080;
@@ -37,6 +39,14 @@ pub(crate) struct SelectParams {
         help = "Should use subscription servers"
     )]
     remote: bool,
+
+    #[arg(
+        long,
+        short,
+        default_value_t = false,
+        help = "Do not run XRay, just print config"
+    )]
+    dry_run: bool,
 
     #[arg(long, conflicts_with = "http_port", help = format!("SOCKS5 port, default: {DEFAULT_SOCKS_PORT}"))]
     socks_port: Option<u16>,
@@ -195,7 +205,34 @@ impl SelectParams {
 
         let config_json = create_json_config(url.as_str(), socks_port, http_port);
 
-        println!("{}", config_json);
+        match self.dry_run {
+            true => {
+                println!("{}", config_json);
+                Ok(())
+            }
+            false => self.run_xray(config_json).await,
+        }
+    }
+
+    async fn run_xray(&self, config: impl AsRef<str>) -> anyhow::Result<()> {
+        static BIN_NAME: &'static str = "xray";
+        let mut command = tokio::process::Command::new(BIN_NAME)
+            .stderr(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stdin(Stdio::piped())
+            .spawn()
+            .map_err(|_| anyhow::anyhow!("Failed to run XRay, please make sure It is installed"))?;
+
+        let mut child_stdin = command
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("No child stdin"))?;
+
+        child_stdin.write_all(config.as_ref().as_bytes()).await?;
+
+        drop(child_stdin);
+
+        command.wait().await?;
 
         Ok(())
     }
