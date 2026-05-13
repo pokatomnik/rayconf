@@ -21,9 +21,9 @@ impl Display for XRayServerWithDuration {
         let server_name = self.0.to_string();
         let duration = self
             .1
-            .map(|v| v.as_millis().to_string())
+            .map(|v| format!("{} ms", v.as_millis()))
             .unwrap_or_else(|| "n/a".to_string());
-        let title = format!("{}, {}ms", server_name, duration);
+        let title = format!("{}, {}", server_name, duration);
         f.write_str(title.as_str())
     }
 }
@@ -57,7 +57,7 @@ impl SelectParams {
             let Some(server) = servers.get(idx) else {
                 continue;
             };
-            sorted_map.insert(server.to_owned(), duration.unwrap_or_default());
+            sorted_map.insert(server.to_owned(), duration);
         }
 
         let mut servers_sorted = sorted_map
