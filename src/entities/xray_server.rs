@@ -47,7 +47,7 @@ impl XRayServer {
             durations.push(duration);
         }
         if durations.is_empty() {
-            anyhow::bail!("Empty addrs list"); // unused, почему?
+            anyhow::bail!("Empty addrs list");
         }
         let mut ok_durations = durations
             .into_iter()
