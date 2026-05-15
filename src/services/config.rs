@@ -1,13 +1,13 @@
 use crate::entities::remote::Remote;
 use crate::entities::remote_decoder::RemoteDecoder;
 use crate::entities::xray_server::XRayServer;
+use crate::services::fileman::FileMan;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::path::PathBuf;
 
-static DEFAULT_CONFIG_FILE_NAME: &'static str = ".rayconf.json";
+static DEFAULT_CONFIG_FILE_NAME: &'static str = "rayconf.json";
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub(crate) struct Config {
     #[serde(rename = "serverURLs")]
     server_urls: Vec<XRayServer>,
@@ -75,29 +75,19 @@ impl Config {
         self.remotes.iter().collect()
     }
 
-    fn home_dir() -> Option<PathBuf> {
-        std::env::home_dir()
-    }
-
-    fn get_config_path() -> anyhow::Result<PathBuf> {
-        let home_dir = Self::home_dir().ok_or_else(|| anyhow::Error::msg(""))?;
-        Ok(home_dir.join(DEFAULT_CONFIG_FILE_NAME))
-    }
-
     pub(crate) async fn read_or_default() -> Self {
-        let Ok(config_path) = Self::get_config_path() else {
-            return Self::default();
-        };
-
-        let Ok(config_str) = tokio::fs::read_to_string(config_path).await else {
-            return Self::default();
-        };
-
-        serde_json::from_str(&config_str).unwrap_or_else(|_| Self::default())
+        FileMan::read_data(DEFAULT_CONFIG_FILE_NAME)
+            .await
+            .ok()
+            .and_then(|v| {
+                serde_json::from_slice::<Self>(v.as_ref()).ok()
+            })
+            .unwrap_or_default()
     }
 
     pub(crate) async fn try_write(&self) -> anyhow::Result<()> {
         let serialized = serde_json::to_string_pretty(self)?;
-        Ok(tokio::fs::write(Self::get_config_path()?, serialized).await?)
+        FileMan::save_data(DEFAULT_CONFIG_FILE_NAME, serialized).await?;
+        Ok(())
     }
 }

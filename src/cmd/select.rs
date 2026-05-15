@@ -1,10 +1,10 @@
-use std::fmt::Display;
 use std::process::Stdio;
 use std::time::Duration;
 use std::{cmp::Ordering, collections::HashMap};
 
 use crate::entities::remote::Remote;
 use crate::entities::xray_server::XRayServer;
+use crate::entities::xray_server_with_duration::XRayServerWithDuration;
 use crate::services::config::Config;
 use crate::utils::tap::Tap;
 use crate::v2parser::parser::create_json_config;
@@ -15,20 +15,6 @@ use tokio::io::AsyncWriteExt;
 
 static DEFAULT_HTTP_PORT: u16 = 8080;
 static DEFAULT_SOCKS_PORT: u16 = 1080;
-
-struct XRayServerWithDuration(XRayServer, Option<Duration>);
-
-impl Display for XRayServerWithDuration {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let server_name = self.0.to_string();
-        let duration = self
-            .1
-            .map(|v| format!("{} ms", v.as_millis()))
-            .unwrap_or_else(|| "n/a".to_string());
-        let title = format!("{}, {}", server_name, duration);
-        f.write_str(title.as_str())
-    }
-}
 
 #[derive(Debug, Args)]
 pub(crate) struct SelectParams {
@@ -86,7 +72,7 @@ impl SelectParams {
 
         servers_sorted
             .into_iter()
-            .map(|(server, duration)| XRayServerWithDuration(server, duration))
+            .map(|(server, duration)| XRayServerWithDuration::new(server, duration))
             .collect()
     }
 
@@ -178,7 +164,7 @@ impl SelectParams {
             .get(server_idx)
             .ok_or_else(|| anyhow::Error::msg("No XRay server selected"))?;
 
-        Ok(selected_xray_server.0.url().to_string())
+        Ok(selected_xray_server.xray_server().url().to_string())
     }
 
     pub async fn select(&self) -> anyhow::Result<()> {

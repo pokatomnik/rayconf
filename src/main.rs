@@ -17,6 +17,7 @@ async fn main() {
         Commands::Delete(delete_params) => delete_params.remove().await,
         Commands::Select(select_params) => select_params.select().await,
         Commands::Remote(remote_params) => remote_params.handle_action().await,
+        Commands::Perf(perf_params) => perf_params.start().await,
     };
 
     if let Err(error) = error {
