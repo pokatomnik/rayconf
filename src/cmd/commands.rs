@@ -1,10 +1,11 @@
 use crate::cmd::add::AddParams;
+use crate::cmd::perf::PerfParams;
 use crate::cmd::remote::RemoteParams;
 use crate::cmd::remove::RemoveParams;
 use crate::cmd::select::SelectParams;
 use clap::Subcommand;
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand)]
 pub(crate) enum Commands {
     #[clap(visible_aliases = ["a"], about = "Add a XRay server by URL")]
     Add(AddParams),
@@ -17,4 +18,7 @@ pub(crate) enum Commands {
 
     /// Remote URLs (subscription link)
     Remote(RemoteParams),
+
+    #[clap(visible_aliases = ["p, performance"], about = "Performance analyzis")]
+    Perf(PerfParams),
 }

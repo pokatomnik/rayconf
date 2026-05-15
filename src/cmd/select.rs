@@ -1,34 +1,19 @@
-use std::fmt::Display;
 use std::process::Stdio;
-use std::time::Duration;
 use std::{cmp::Ordering, collections::HashMap};
 
 use crate::entities::remote::Remote;
 use crate::entities::xray_server::XRayServer;
+use crate::entities::xray_server_with_perf::XRayServerWithPerf;
 use crate::services::config::Config;
+use crate::services::measures::Measures;
 use crate::utils::tap::Tap;
 use crate::v2parser::parser::create_json_config;
 use clap::Args;
-use futures::{StreamExt, stream};
 use reqwest::Client;
 use tokio::io::AsyncWriteExt;
 
 static DEFAULT_HTTP_PORT: u16 = 8080;
 static DEFAULT_SOCKS_PORT: u16 = 1080;
-
-struct XRayServerWithDuration(XRayServer, Option<Duration>);
-
-impl Display for XRayServerWithDuration {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let server_name = self.0.to_string();
-        let duration = self
-            .1
-            .map(|v| format!("{} ms", v.as_millis()))
-            .unwrap_or_else(|| "n/a".to_string());
-        let title = format!("{}, {}", server_name, duration);
-        f.write_str(title.as_str())
-    }
-}
 
 #[derive(Debug, Args)]
 pub(crate) struct SelectParams {
@@ -56,37 +41,48 @@ pub(crate) struct SelectParams {
 }
 
 impl SelectParams {
-    async fn sort_servers(&self, servers: Vec<XRayServer>) -> Vec<XRayServerWithDuration> {
-        let mut sorted_map = HashMap::new();
-        let measure_results = stream::iter(servers.iter().enumerate())
-            .map(async move |(idx, s)| (idx, s.measure_rtt(Duration::from_secs(5)).await))
-            .buffer_unordered(5)
-            .collect::<Vec<_>>()
-            .await;
-        for (idx, duration) in measure_results.into_iter() {
-            let Some(server) = servers.get(idx) else {
-                continue;
-            };
-            sorted_map.insert(server.to_owned(), duration);
+    async fn sort_servers(&self, servers: Vec<XRayServer>) -> Vec<XRayServerWithPerf> {
+        let measures = Measures::read_or_default().await;
+
+        let mut measure_results = Vec::with_capacity(servers.len());
+        for server in servers.iter() {
+            let measure_result = measures.get_latest_measure(server.url()).await;
+            measure_results.push(measure_result);
         }
 
-        let mut servers_sorted = sorted_map
-            .into_iter()
-            .collect::<Vec<(XRayServer, Option<Duration>)>>();
-        servers_sorted.sort_by(
-            |(_, duration_a), (_, duration_b)| match (duration_a, duration_b) {
+        let mut measure_results_index = HashMap::with_capacity(measure_results.len());
+        for measure_result in measure_results {
+            if let Some(measure_result) = measure_result {
+                measure_results_index.insert(measure_result.url().to_owned(), measure_result);
+            }
+        }
+
+        let mut servers = servers.clone();
+
+        servers.sort_by(|server_a, server_b| {
+            let (speed_a, speed_b) = (
+                measure_results_index.get(server_a.url()),
+                measure_results_index.get(server_b.url()),
+            );
+
+            match (speed_a, speed_b) {
                 (None, None) => Ordering::Equal,
                 (None, Some(_)) => Ordering::Greater,
                 (Some(_), None) => Ordering::Less,
-                (Some(duration_a), Some(duration_b)) => {
-                    duration_a.as_millis().cmp(&duration_b.as_millis())
-                }
-            },
-        );
+                (Some(a), Some(b)) => match (a.perf_data(), b.perf_data()) {
+                    (None, None) => Ordering::Equal,
+                    (None, Some(_)) => Ordering::Greater,
+                    (Some(_), None) => Ordering::Less,
+                    (Some(a), Some(b)) => b.download_speed_mbps().cmp(&a.download_speed_mbps()),
+                },
+            }
+        });
 
-        servers_sorted
+        servers
             .into_iter()
-            .map(|(server, duration)| XRayServerWithDuration(server, duration))
+            .map(|ref s| {
+                XRayServerWithPerf::new(s.clone(), measure_results_index.get(s.url()).cloned())
+            })
             .collect()
     }
 
@@ -159,26 +155,26 @@ impl SelectParams {
             .filter_map(|u| XRayServer::try_from(u.to_string()).ok())
             .collect::<Vec<XRayServer>>();
 
-        let sorted_servers = self.sort_servers(xray_servers).await;
+        let xray_servers = self.sort_servers(xray_servers).await;
 
-        if sorted_servers.is_empty() {
+        if xray_servers.is_empty() {
             return Err(anyhow::Error::msg("This URL has note XRay servers"));
         }
 
         let server_idx = dialoguer::FuzzySelect::new()
             .with_prompt("Select one XRay server")
-            .items(&sorted_servers)
-            .tap(|d| match &sorted_servers.is_empty() {
+            .items(&xray_servers)
+            .tap(|d| match &xray_servers.is_empty() {
                 true => d,
                 false => d.default(0),
             })
             .interact()?;
 
-        let selected_xray_server = sorted_servers
+        let selected_xray_server = xray_servers
             .get(server_idx)
             .ok_or_else(|| anyhow::Error::msg("No XRay server selected"))?;
 
-        Ok(selected_xray_server.0.url().to_string())
+        Ok(selected_xray_server.xray_server().url().to_string())
     }
 
     pub async fn select(&self) -> anyhow::Result<()> {
@@ -217,6 +213,7 @@ impl SelectParams {
     async fn run_xray(&self, config: impl AsRef<str>) -> anyhow::Result<()> {
         static BIN_NAME: &'static str = "xray";
         let mut command = tokio::process::Command::new(BIN_NAME)
+            .kill_on_drop(true)
             .stderr(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stdin(Stdio::piped())
