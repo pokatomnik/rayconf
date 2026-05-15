@@ -39,6 +39,11 @@ impl Measures {
             .push_front(measure);
     }
 
+    pub async fn get_latest_measure(&self, url: &Url) -> Option<PerfResult> {
+        let data = self.data.read().await;
+        data.measures.get(url)?.front().cloned()
+    }
+
     pub async fn dump(&self) -> anyhow::Result<()> {
         let data = self.data.read().await;
         let measures_data = (*data).clone();

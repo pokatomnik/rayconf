@@ -1320,7 +1320,6 @@ dependencies = [
  "dialoguer",
  "dnsclient",
  "futures",
- "futures-util",
  "http",
  "percent-encoding",
  "querystring",

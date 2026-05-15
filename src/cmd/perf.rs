@@ -162,6 +162,7 @@ impl PerfParams {
     async fn run_xray(&self, config: impl AsRef<str>) -> anyhow::Result<Child> {
         static BIN_NAME: &'static str = "xray";
         let mut command = tokio::process::Command::new(BIN_NAME)
+            .kill_on_drop(true)
             .stderr(Stdio::null())
             .stdout(Stdio::null())
             .stdin(Stdio::piped())
