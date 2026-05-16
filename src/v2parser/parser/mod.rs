@@ -210,10 +210,10 @@ fn get_uri_data(uri: &str) -> anyhow::Result<(String, RawData, OutboundSettings)
             Ok((String::from("socks"), d, s))
         }
         Some(_) => {
-            panic!("The protocol was recognized but is not supported yet");
+            anyhow::bail!("The protocol was recognized but is not supported yet");
         }
         None => {
-            panic!("The protocol is not supported");
+            anyhow::bail!("The protocol is not supported")
         }
     };
 }
@@ -258,7 +258,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "The protocol was recognized but is not supported yet")]
     fn test_get_uri_data_http_unimplemented() {
         let uri = "http://example.com";
         let res = get_uri_data(uri);
@@ -266,7 +265,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "The protocol is not supported")]
     fn test_get_uri_data_unknown() {
         let uri = "ftp://example.com";
         let res = get_uri_data(uri);
