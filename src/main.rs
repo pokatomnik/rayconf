@@ -37,7 +37,7 @@ async fn wait_for_exit<T, E: std::fmt::Display>(
                     ExitCode::SUCCESS
                 },
                 Err(error) => {
-                    eprintln!("Rayconf finished with error: {error}");
+                    eprintln!("\nRayconf finished with error: {error}");
                     ExitCode::FAILURE
                 }
             }
@@ -46,12 +46,12 @@ async fn wait_for_exit<T, E: std::fmt::Display>(
         signal = tokio::signal::ctrl_c() => {
             match signal {
                 Ok(()) => {
-                    eprintln!("Graceful shutdown");
+                    eprintln!("\nGraceful shutdown");
                     ExitCode::from(130)
                 }
 
                 Err(error) => {
-                    eprintln!("failed to listen for Ctrl+C: {error}");
+                    eprintln!("\nfailed to listen for Ctrl+C: {error}");
                     ExitCode::FAILURE
                 }
             }
