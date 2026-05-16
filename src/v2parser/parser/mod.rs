@@ -1,6 +1,7 @@
 use crate::v2parser::entities::config::Config;
 use crate::v2parser::entities::grpc_settings::GRPCSettings;
 use crate::v2parser::entities::kcp_settings::KCPSettings;
+use crate::v2parser::entities::log::Log;
 use crate::v2parser::entities::non_header_object::NonHeaderObject;
 use crate::v2parser::entities::outbound::Outbound;
 use crate::v2parser::entities::outbound_settings::OutboundSettings;
@@ -14,7 +15,7 @@ use crate::v2parser::entities::tls_settings::TLSSettings;
 use crate::v2parser::entities::ws_settings::WSSettings;
 use crate::v2parser::entities::xhttp_settings::XHTTPSettings;
 use crate::v2parser::utils::inbound_generator::{
-    generate_inbound_config, InboundGenerationOptions,
+    InboundGenerationOptions, generate_inbound_config,
 };
 use crate::v2parser::utils::parse_raw_json;
 
@@ -39,19 +40,30 @@ mod vmess;
 //     return serialized;
 // }
 
-pub fn create_json_config(uri: &str, socks_port: Option<u16>, http_port: Option<u16>) -> String {
-    let config = create_config(uri, socks_port, http_port);
+pub fn create_json_config(
+    uri: &str,
+    socks_port: Option<u16>,
+    http_port: Option<u16>,
+    log: Option<Log>,
+) -> String {
+    let config = create_config(uri, socks_port, http_port, log);
     let serialized = serde_json::to_string_pretty(&config).unwrap();
     return serialized;
 }
 
-fn create_config(uri: &str, socks_port: Option<u16>, http_port: Option<u16>) -> Config {
+fn create_config(
+    uri: &str,
+    socks_port: Option<u16>,
+    http_port: Option<u16>,
+    log: Option<Log>,
+) -> Config {
     let outbound_object = create_outbound_object(uri);
     let inbound_config = generate_inbound_config(InboundGenerationOptions {
         socks_port,
         http_port,
     });
     let config = Config {
+        log: log,
         outbounds: vec![outbound_object],
         inbounds: inbound_config,
     };

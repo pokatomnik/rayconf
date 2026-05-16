@@ -4,6 +4,7 @@ pub(crate) mod grpc_settings;
 pub(crate) mod inbound;
 pub(crate) mod inbound_settings;
 pub(crate) mod kcp_settings;
+pub(crate) mod log;
 pub(crate) mod non_header_object;
 pub(crate) mod outbound;
 pub(crate) mod outbound_settings;
