@@ -103,7 +103,7 @@ impl PerfParams {
 
         let result = portman
             .lease_port(async move |port| -> anyhow::Result<Duration> {
-                let config_json = create_json_config(url.as_str(), Some(port), None, None);
+                let config_json = create_json_config(url.as_str(), Some(port), None, None)?;
                 let mut command = self.run_xray(config_json).await?;
                 let measure_result = ProxiedClient::try_new(PROXY_HOST, port, PROXY_TEST_TIMEOUT)?
                     .measure_first_successful(

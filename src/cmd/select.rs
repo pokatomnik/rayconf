@@ -215,7 +215,7 @@ impl SelectParams {
         };
 
         let config_json =
-            create_json_config(url.as_str(), socks_port, http_port, Some(self.get_log()));
+            create_json_config(url.as_str(), socks_port, http_port, Some(self.get_log()))?;
 
         match self.dry_run {
             true => {

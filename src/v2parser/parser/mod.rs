@@ -45,10 +45,10 @@ pub fn create_json_config(
     socks_port: Option<u16>,
     http_port: Option<u16>,
     log: Option<Log>,
-) -> String {
-    let config = create_config(uri, socks_port, http_port, log);
-    let serialized = serde_json::to_string_pretty(&config).unwrap();
-    return serialized;
+) -> anyhow::Result<String> {
+    let config = create_config(uri, socks_port, http_port, log)?;
+    let serialized = serde_json::to_string_pretty(&config)?;
+    return Ok(serialized);
 }
 
 fn create_config(
@@ -56,8 +56,8 @@ fn create_config(
     socks_port: Option<u16>,
     http_port: Option<u16>,
     log: Option<Log>,
-) -> Config {
-    let outbound_object = create_outbound_object(uri);
+) -> anyhow::Result<Config> {
+    let outbound_object = create_outbound_object(uri)?;
     let inbound_config = generate_inbound_config(InboundGenerationOptions {
         socks_port,
         http_port,
@@ -67,11 +67,11 @@ fn create_config(
         outbounds: vec![outbound_object],
         inbounds: inbound_config,
     };
-    return config;
+    return Ok(config);
 }
 
-fn create_outbound_object(uri: &str) -> Outbound {
-    let (name, data, outbound_settings) = get_uri_data(uri);
+fn create_outbound_object(uri: &str) -> anyhow::Result<Outbound> {
+    let (name, data, outbound_settings) = get_uri_data(uri)?;
 
     let network_type = data.r#type.clone().unwrap_or(String::from(""));
     let allow_insecure = data.allow_insecure == Some(String::from("true"))
@@ -178,36 +178,36 @@ fn create_outbound_object(uri: &str) -> Outbound {
         settings: outbound_settings,
     };
 
-    return outbound;
+    return Ok(outbound);
 }
 
-fn get_uri_data(uri: &str) -> (String, RawData, OutboundSettings) {
+fn get_uri_data(uri: &str) -> anyhow::Result<(String, RawData, OutboundSettings)> {
     let protocol = uri_identifier::get_uri_protocol(uri);
     return match protocol {
         Some(uri_identifier::Protocols::Vless) => {
             let d = vless::data::get_data(uri);
             let s = vless::create_outbound_settings(&d);
-            (String::from("vless"), d, s)
+            Ok((String::from("vless"), d, s))
         }
         Some(uri_identifier::Protocols::Vmess) => {
             let d = vmess::data::get_data(uri);
             let s = vmess::create_outbound_settings(&d);
-            (String::from("vmess"), d, s)
+            Ok((String::from("vmess"), d, s))
         }
         Some(uri_identifier::Protocols::Trojan) => {
             let d = trojan::data::get_data(uri);
             let s = trojan::create_outbound_settings(&d);
-            (String::from("trojan"), d, s)
+            Ok((String::from("trojan"), d, s))
         }
         Some(uri_identifier::Protocols::Shadowsocks) => {
             let d = shadow_socks::data::get_data(uri);
             let s = shadow_socks::create_outbound_settings(&d);
-            (String::from("shadowsocks"), d, s)
+            Ok((String::from("shadowsocks"), d, s))
         }
         Some(uri_identifier::Protocols::Socks) => {
             let d = socks::data::get_data(uri);
             let s = socks::create_outbound_settings(&d);
-            (String::from("socks"), d, s)
+            Ok((String::from("socks"), d, s))
         }
         Some(_) => {
             panic!("The protocol was recognized but is not supported yet");
@@ -216,4 +216,60 @@ fn get_uri_data(uri: &str) -> (String, RawData, OutboundSettings) {
             panic!("The protocol is not supported");
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_uri_data_vless() {
+        let uri = "vless://3d1c3f04-729d-59d3-bdb6-3f3f4352e173@root.ii.one:2083?security=reality&sni=www.spamhaus.org&fp=safari&pbk=7xhH4b_VkliBxGulljcyPOH-bYUA2dl-XAdZAsfhk04&sid=6ba85179e30d4fc2&type=tcp&flow=xtls-rprx-vision#Ha-ac";
+        let (name, _data, _settings) = get_uri_data(uri).unwrap();
+        assert_eq!(name, "vless");
+    }
+
+    #[test]
+    fn test_get_uri_data_vmess() {
+        let uri = "vmess://eyJhZGQiOiIxMjcuMC4wLjEiLCJhaWQiOiIwIiwiaG9zdCI6IiIsImlkIjoiOHM2OTdlMmMtZXMxNy00MDNkLTI0ZjMtZHMyYzYwc2I4ZjUiLCJuZXQiOiJ0Y3AiLCJwYXRoIjoiIiwicG9ydCI6IjgwODAiLCJwcyI6InRlc3QiLCJzY3kiOiJhdXRvIiwic25pIjoiIiwidGxzIjoiIiwidHlwZSI6Im5vbmUiLCJ2IjoiMiJ9";
+        let (name, _data, _settings) = get_uri_data(uri).unwrap();
+        assert_eq!(name, "vmess");
+    }
+
+    #[test]
+    fn test_get_uri_data_trojan() {
+        let uri = "trojan://test-pw@13.50.100.84:22222?security=tls&sni=trj.rollingnext.co.uk&type=tcp#test";
+        let (name, _data, _settings) = get_uri_data(uri).unwrap();
+        assert_eq!(name, "trojan");
+    }
+
+    #[test]
+    fn test_get_uri_data_shadowsocks() {
+        let uri = "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpXNzRYRkFMS0t1dzZtNUlB@www.outline.aasf.cyou:443#test";
+        let (name, _data, _settings) = get_uri_data(uri).unwrap();
+        assert_eq!(name, "shadowsocks");
+    }
+
+    #[test]
+    fn test_get_uri_data_socks() {
+        let uri = "socks5://username:password@127.0.0.1:1080";
+        let (name, _data, _settings) = get_uri_data(uri).unwrap();
+        assert_eq!(name, "socks");
+    }
+
+    #[test]
+    #[should_panic(expected = "The protocol was recognized but is not supported yet")]
+    fn test_get_uri_data_http_unimplemented() {
+        let uri = "http://example.com";
+        let res = get_uri_data(uri);
+        assert_eq!(res.is_ok(), false);
+    }
+
+    #[test]
+    #[should_panic(expected = "The protocol is not supported")]
+    fn test_get_uri_data_unknown() {
+        let uri = "ftp://example.com";
+        let res = get_uri_data(uri);
+        assert_eq!(res.is_ok(), false);
+    }
 }
