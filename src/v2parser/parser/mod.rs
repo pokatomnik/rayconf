@@ -195,7 +195,7 @@ fn get_uri_data(uri: &str) -> anyhow::Result<(String, RawData, OutboundSettings)
             Ok((String::from("vmess"), d, s))
         }
         Some(uri_identifier::Protocols::Trojan) => {
-            let d = trojan::data::get_data(uri);
+            let d = trojan::data::get_data(uri)?;
             let s = trojan::create_outbound_settings(&d);
             Ok((String::from("trojan"), d, s))
         }
