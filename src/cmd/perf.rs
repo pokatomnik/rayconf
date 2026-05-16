@@ -4,17 +4,16 @@ use clap::Args;
 use reqwest::Client;
 use tokio::{io::AsyncWriteExt, process::Child, sync::OnceCell};
 
-use crate::{
-    entities::{
-        perf_result::{PerfData, PerfResult},
-        proxied_client::ProxiedClient,
-        remote::Remote,
-        xray_server::XRayServer,
-    },
-    services::{config::Config, measures::Measures, portman::Portman},
-    utils::{tap::Tap, urldecode::URLDecode},
-    v2parser::parser::create_json_config,
-};
+use crate::entities::perf_result::{PerfData, PerfResult};
+use crate::entities::proxied_client::ProxiedClient;
+use crate::entities::remote::Remote;
+use crate::entities::xray_server::XRayServer;
+use crate::services::config::Config;
+use crate::services::measures::Measures;
+use crate::services::portman::Portman;
+use crate::utils::tap::Tap;
+use crate::utils::urldecode::URLDecode;
+use crate::v2parser::parser::create_json_config;
 
 static FIFTY_MB_IN_BYTES: u128 = 50 * 1024 * 1024;
 static UNKNOWN_SERVER_NAME: &'static str = "Unknown";
@@ -104,7 +103,7 @@ impl PerfParams {
 
         let result = portman
             .lease_port(async move |port| -> anyhow::Result<Duration> {
-                let config_json = create_json_config(url.as_str(), Some(port), None);
+                let config_json = create_json_config(url.as_str(), Some(port), None, None);
                 let mut command = self.run_xray(config_json).await?;
                 let measure_result = ProxiedClient::try_new(PROXY_HOST, port, PROXY_TEST_TIMEOUT)?
                     .measure_first_successful(

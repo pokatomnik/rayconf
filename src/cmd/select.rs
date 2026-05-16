@@ -7,6 +7,7 @@ use crate::entities::xray_server_with_perf::XRayServerWithPerf;
 use crate::services::config::Config;
 use crate::services::measures::Measures;
 use crate::utils::tap::Tap;
+use crate::v2parser::entities::log::{Log, LogLevel};
 use crate::v2parser::parser::create_json_config;
 use clap::Args;
 use reqwest::Client;
@@ -16,6 +17,7 @@ static DEFAULT_HTTP_PORT: u16 = 8080;
 static DEFAULT_SOCKS_PORT: u16 = 1080;
 
 #[derive(Debug, Args)]
+#[clap(rename_all = "kebab-case")]
 pub(crate) struct SelectParams {
     #[arg(
         long,
@@ -38,6 +40,12 @@ pub(crate) struct SelectParams {
 
     #[arg(long, conflicts_with = "socks_port", help = format!("HTTP port, default: {DEFAULT_HTTP_PORT}"))]
     http_port: Option<u16>,
+
+    #[arg(long, short, help = "Log level")]
+    log_level: Option<LogLevel>,
+
+    #[arg(long, default_value_t = false, help = "Log DNS queries")]
+    log_dns: bool,
 }
 
 impl SelectParams {
@@ -177,6 +185,13 @@ impl SelectParams {
         Ok(selected_xray_server.xray_server().url().to_string())
     }
 
+    fn get_log(&self) -> Log {
+        let mut log = Log::default();
+        log.with_log_level(self.log_level.unwrap_or_default());
+        log.with_dns_log(self.log_dns);
+        log
+    }
+
     pub async fn select(&self) -> anyhow::Result<()> {
         let result = match self.remote {
             true => self.select_remote().await,
@@ -199,7 +214,8 @@ impl SelectParams {
             (None, Some(http_port)) => Some(http_port),
         };
 
-        let config_json = create_json_config(url.as_str(), socks_port, http_port);
+        let config_json =
+            create_json_config(url.as_str(), socks_port, http_port, Some(self.get_log()));
 
         match self.dry_run {
             true => {
