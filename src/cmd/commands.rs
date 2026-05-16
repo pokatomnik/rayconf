@@ -1,4 +1,5 @@
 use crate::cmd::add::AddParams;
+use crate::cmd::completion::CompletionParams;
 use crate::cmd::perf::PerfParams;
 use crate::cmd::remote::RemoteParams;
 use crate::cmd::remove::RemoveParams;
@@ -21,4 +22,7 @@ pub(crate) enum Commands {
 
     #[clap(visible_aliases = ["p, performance"], about = "Performance analyzis")]
     Perf(PerfParams),
+
+    #[clap(about = "Prepare and print shell completion script")]
+    Completion(CompletionParams),
 }

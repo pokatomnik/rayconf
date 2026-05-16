@@ -21,6 +21,7 @@ async fn main() -> ExitCode {
             Commands::Select(select_params) => select_params.select().await,
             Commands::Remote(remote_params) => remote_params.handle_action().await,
             Commands::Perf(perf_params) => perf_params.start().await,
+            Commands::Completion(completion_params) => completion_params.generate().await,
         }
     };
 
