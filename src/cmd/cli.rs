@@ -1,11 +1,11 @@
-use clap::Parser;
 use crate::cmd::commands::Commands;
+use clap::Parser;
 
 #[derive(Parser)]
-#[command(name = "mockers")]
-#[command(about = "Simple mock server written in Rust")]
+#[command(name = "rayconf")]
+#[command(about = "XRay configuration utility")]
 #[command(version)]
 pub(crate) struct Cli {
     #[command(subcommand)]
-    pub command: Commands
+    pub command: Commands,
 }
