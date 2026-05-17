@@ -17,6 +17,7 @@ use crate::v2parser::entities::xhttp_settings::XHTTPSettings;
 use crate::v2parser::utils::inbound_generator::{
     InboundGenerationOptions, generate_inbound_config,
 };
+use crate::v2parser::utils::incorrect_uri::IncorrectURI;
 use crate::v2parser::utils::parse_raw_json;
 
 mod shadow_socks;
@@ -185,7 +186,7 @@ fn get_uri_data(uri: &str) -> anyhow::Result<(String, RawData, OutboundSettings)
     let protocol = uri_identifier::get_uri_protocol(uri);
     return match protocol {
         Some(uri_identifier::Protocols::Vless) => {
-            let d = vless::data::get_data(uri);
+            let d = vless::data::get_data(uri).incorrect_uri()?;
             let s = vless::create_outbound_settings(&d);
             Ok((String::from("vless"), d, s))
         }

@@ -1,14 +1,12 @@
 use crate::utils::to_err::ToAnyhow;
 use crate::v2parser::entities::raw_data::RawData;
 use crate::v2parser::parser::trojan::models::TrojanAddress;
+use crate::v2parser::utils::incorrect_uri::IncorrectURI;
 use crate::v2parser::utils::{get_parameter_value, url_decode};
 use http::Uri;
 
 pub fn get_data(uri: &str) -> anyhow::Result<RawData> {
-    let data = uri
-        .split_once("trojan://")
-        .anyhow("Incorrect URI format")?
-        .1;
+    let data = uri.split_once("trojan://").incorrect_uri()?.1;
     let query_and_name = uri.split_once("?").anyhow("Incorrect URI format")?.1;
     let (raw_query, name) = query_and_name
         .split_once("#")
