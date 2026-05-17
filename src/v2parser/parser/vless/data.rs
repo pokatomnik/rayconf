@@ -14,7 +14,7 @@ pub fn get_data(uri: &str) -> anyhow::Result<RawData> {
     let query: Vec<(&str, &str)> = querystring::querify(raw_query);
 
     let result = RawData {
-        remarks: url_decode(Some(String::from(name))).unwrap_or(String::from("")),
+        remarks: url_decode(Some(name.to_string())).unwrap_or_default(),
         uuid: Some(parsed_address.uuid),
         port: Some(parsed_address.port),
         address: Some(parsed_address.address),
