@@ -1,19 +1,20 @@
-use http::Uri;
 use crate::v2parser::entities::raw_data::RawData;
 use crate::v2parser::parser::vless::models::VLessAddress;
+use crate::v2parser::utils::incorrect_uri::IncorrectURI;
 use crate::v2parser::utils::{get_parameter_value, url_decode};
+use http::Uri;
 
-pub fn get_data(uri: &str) -> RawData {
-    let data = uri.split_once("vless://").unwrap().1;
-    let query_and_name = uri.split_once("?").unwrap().1;
+pub fn get_data(uri: &str) -> anyhow::Result<RawData> {
+    let data = uri.split_once("vless://").incorrect_uri()?.1;
+    let query_and_name = uri.split_once("?").incorrect_uri()?.1;
     let (raw_query, name) = query_and_name
         .split_once("#")
         .unwrap_or((query_and_name, ""));
-    let parsed_address = parse_vless_address(data.split_once("?").unwrap().0);
+    let parsed_address = parse_vless_address(data.split_once("?").incorrect_uri()?.0)?;
     let query: Vec<(&str, &str)> = querystring::querify(raw_query);
 
-    return RawData {
-        remarks: url_decode(Some(String::from(name))).unwrap_or(String::from("")),
+    let result = RawData {
+        remarks: url_decode(Some(name.to_string())).unwrap_or_default(),
         uuid: Some(parsed_address.uuid),
         port: Some(parsed_address.port),
         address: Some(parsed_address.address),
@@ -43,22 +44,49 @@ pub fn get_data(uri: &str) -> RawData {
         server_method: None,
         username: None,
     };
+
+    Ok(result)
 }
 
-fn parse_vless_address(raw_data: &str) -> VLessAddress {
+fn parse_vless_address(raw_data: &str) -> anyhow::Result<VLessAddress> {
     let (uuid, raw_address): (String, &str) = match raw_data.split_once("@") {
         None => {
-            panic!("Wrong vless format, no `@` found in the address");
+            anyhow::bail!("Wrong vless format, no `@` found in the address");
         }
         Some(data) => (String::from(data.0), data.1),
     };
     let address_wo_slash = raw_address.strip_suffix("/").unwrap_or(raw_address);
 
-    let parsed = address_wo_slash.parse::<Uri>().unwrap();
+    let parsed = address_wo_slash.parse::<Uri>().incorrect_uri()?;
 
-    return VLessAddress {
-        uuid: url_decode(Some(uuid)).unwrap(),
-        address: parsed.host().unwrap().to_string(),
-        port: parsed.port().unwrap().as_u16(),
+    let result = VLessAddress {
+        uuid: url_decode(Some(uuid)).incorrect_uri()?,
+        address: parsed.host().incorrect_uri()?.to_string(),
+        port: parsed.port().incorrect_uri()?.as_u16(),
     };
+
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_vless_address;
+
+    #[test]
+    fn parse_vless_address_with_trailing_slash_and_encoded_uuid() {
+        let parsed = parse_vless_address("my%2Duuid@https://example.com:443/").unwrap();
+
+        assert_eq!(parsed.uuid, "my-uuid");
+        assert_eq!(parsed.address, "example.com");
+        assert_eq!(parsed.port, 443);
+    }
+
+    #[test]
+    fn parse_vless_address_without_trailing_slash() {
+        let parsed = parse_vless_address("uuid123@https://server.test:8443").unwrap();
+
+        assert_eq!(parsed.uuid, "uuid123");
+        assert_eq!(parsed.address, "server.test");
+        assert_eq!(parsed.port, 8443);
+    }
 }

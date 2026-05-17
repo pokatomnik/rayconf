@@ -1,12 +1,13 @@
 use crate::v2parser::entities::raw_data::RawData;
 use crate::v2parser::parser::vmess::models::VMessAddress;
+use crate::v2parser::utils::incorrect_uri::IncorrectURI;
 use crate::v2parser::utils::{get_parameter_value, url_decode, url_decode_str};
-use base64::{engine::general_purpose, Engine};
+use base64::{Engine, engine::general_purpose};
 use http::Uri;
 use serde_json::Value;
 
-pub fn get_data(uri: &str) -> RawData {
-    let data = uri.split_once("vmess://").unwrap().1;
+pub fn get_data(uri: &str) -> anyhow::Result<RawData> {
+    let data = uri.split_once("vmess://").incorrect_uri()?.1;
 
     return match general_purpose::STANDARD
         .decode(url_decode_str(data).unwrap_or(String::from(data)))
@@ -16,11 +17,11 @@ pub fn get_data(uri: &str) -> RawData {
     };
 }
 
-fn get_raw_data_from_base64(decoded_base64: &Vec<u8>) -> RawData {
-    let json_str = std::str::from_utf8(decoded_base64).unwrap();
-    let json = serde_json::from_str::<Value>(json_str).unwrap();
+fn get_raw_data_from_base64(decoded_base64: &Vec<u8>) -> anyhow::Result<RawData> {
+    let json_str = std::str::from_utf8(decoded_base64).incorrect_uri()?;
+    let json = serde_json::from_str::<Value>(json_str).incorrect_uri()?;
 
-    return RawData {
+    let result = RawData {
         remarks: url_decode(get_str_field(&json, "ps")).unwrap_or(String::from("")),
         uuid: get_str_field(&json, "id"),
         port: get_str_field(&json, "port")
@@ -60,22 +61,24 @@ fn get_raw_data_from_base64(decoded_base64: &Vec<u8>) -> RawData {
         server_method: None,
         username: None,
     };
+
+    Ok(result)
 }
 
 fn get_str_field(json: &Value, field: &str) -> Option<String> {
     return json.get(field).and_then(|v| v.as_str()).map(String::from);
 }
 
-fn get_raw_data_from_uri(data: &str) -> RawData {
-    let query_and_name = data.split_once("?").unwrap().1;
+fn get_raw_data_from_uri(data: &str) -> anyhow::Result<RawData> {
+    let query_and_name = data.split_once("?").incorrect_uri()?.1;
 
     let (raw_query, name) = query_and_name
         .split_once("#")
         .unwrap_or((query_and_name, ""));
-    let parsed_address = parse_vmess_address(data.split_once("?").unwrap().0);
+    let parsed_address = parse_vmess_address(data.split_once("?").incorrect_uri()?.0)?;
     let query: Vec<(&str, &str)> = querystring::querify(raw_query);
 
-    return RawData {
+    let result = RawData {
         remarks: url_decode(Some(String::from(name))).unwrap_or(String::from("")),
         uuid: Some(parsed_address.uuid),
         port: Some(parsed_address.port),
@@ -106,22 +109,60 @@ fn get_raw_data_from_uri(data: &str) -> RawData {
         server_method: None,
         username: None,
     };
+
+    Ok(result)
 }
 
-fn parse_vmess_address(raw_data: &str) -> VMessAddress {
+fn parse_vmess_address(raw_data: &str) -> anyhow::Result<VMessAddress> {
     let (uuid, raw_address): (String, &str) = match raw_data.split_once("@") {
-        None => {
-            panic!("Wrong vmess format, no `@` found in the address and it was not a valid base64");
-        }
+        None => anyhow::bail!(
+            "Wrong vmess format, no `@` found in the address and it was not a valid base64"
+        ),
         Some(data) => (String::from(data.0), data.1),
     };
     let address_wo_slash = raw_address.strip_suffix("/").unwrap_or(raw_address);
 
-    let parsed = address_wo_slash.parse::<Uri>().unwrap();
+    let parsed = address_wo_slash.parse::<Uri>().incorrect_uri()?;
 
-    return VMessAddress {
-        uuid: url_decode(Some(uuid)).unwrap(),
-        address: parsed.host().unwrap().to_string(),
-        port: parsed.port().unwrap().as_u16(),
+    let result = VMessAddress {
+        uuid: url_decode(Some(uuid)).incorrect_uri()?,
+        address: parsed.host().incorrect_uri()?.to_string(),
+        port: parsed.port().incorrect_uri()?.as_u16(),
     };
+
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_vmess_address;
+
+    #[test]
+    fn parse_vmess_address_with_trailing_slash_and_encoded_uuid() {
+        let parsed = parse_vmess_address("my%2Duuid@example.com:443/").unwrap();
+
+        assert_eq!(parsed.uuid, "my-uuid");
+        assert_eq!(parsed.address, "example.com");
+        assert_eq!(parsed.port, 443);
+    }
+
+    #[test]
+    fn parse_vmess_address_without_trailing_slash() {
+        let parsed = parse_vmess_address("plain-uuid@server.test:8443").unwrap();
+
+        assert_eq!(parsed.uuid, "plain-uuid");
+        assert_eq!(parsed.address, "server.test");
+        assert_eq!(parsed.port, 8443);
+    }
+
+    #[test]
+    fn parse_vmess_address_returns_error_when_at_is_missing() {
+        let result = parse_vmess_address("plain-uuidserver.test:443");
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Wrong vmess format, no `@` found in the address and it was not a valid base64"
+        );
+    }
 }
