@@ -59,12 +59,12 @@ fn parse_trojan_address(raw_data: &str) -> anyhow::Result<TrojanAddress> {
     };
     let address_wo_slash = raw_address.strip_suffix("/").unwrap_or(raw_address);
 
-    let parsed = address_wo_slash.parse::<Uri>().unwrap();
+    let parsed = address_wo_slash.parse::<Uri>().incorrect_uri()?;
 
     let result = TrojanAddress {
-        uuid: url_decode(Some(uuid)).unwrap(),
-        address: parsed.host().unwrap().to_string(),
-        port: parsed.port().unwrap().as_u16(),
+        uuid: url_decode(Some(uuid)).incorrect_uri()?,
+        address: parsed.host().incorrect_uri()?.to_string(),
+        port: parsed.port().incorrect_uri()?.as_u16(),
     };
 
     Ok(result)

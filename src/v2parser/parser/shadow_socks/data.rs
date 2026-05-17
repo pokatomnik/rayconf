@@ -2,11 +2,12 @@ use http::Uri;
 
 use crate::v2parser::entities::raw_data::RawData;
 use crate::v2parser::parser::shadow_socks::models::ShadowSocksAddress;
+use crate::v2parser::utils::incorrect_uri::IncorrectURI;
 use crate::v2parser::utils::{url_decode, url_decode_str};
 use base64::{Engine, engine::general_purpose};
 
 pub fn get_data(uri: &str) -> anyhow::Result<RawData> {
-    let data = uri.split_once("ss://").unwrap().1;
+    let data = uri.split_once("ss://").incorrect_uri()?.1;
     let (raw_data, name) = data.split_once("#").unwrap_or((data, ""));
     let (raw_uri, _) = raw_data.split_once("?").unwrap_or((raw_data, ""));
     let parsed_address = parse_ss_address(raw_uri)?;
@@ -54,7 +55,7 @@ fn parse_ss_address(raw_data: &str) -> anyhow::Result<ShadowSocksAddress> {
     };
     let address_wo_slash = raw_address.strip_suffix("/").unwrap_or(raw_address);
 
-    let parsed = address_wo_slash.parse::<Uri>().unwrap();
+    let parsed = address_wo_slash.parse::<Uri>().incorrect_uri()?;
 
     let method_and_password = general_purpose::STANDARD
         .decode(url_decode_str(&userinfo).unwrap_or(userinfo))
@@ -68,8 +69,8 @@ fn parse_ss_address(raw_data: &str) -> anyhow::Result<ShadowSocksAddress> {
     return Ok(ShadowSocksAddress {
         method: String::from(method),
         password: String::from(password),
-        address: parsed.host().unwrap().to_string(),
-        port: parsed.port().unwrap().as_u16(),
+        address: parsed.host().incorrect_uri()?.to_string(),
+        port: parsed.port().incorrect_uri()?.as_u16(),
     });
 }
 

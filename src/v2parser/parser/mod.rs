@@ -206,7 +206,7 @@ fn get_uri_data(uri: &str) -> anyhow::Result<(String, RawData, OutboundSettings)
             Ok((String::from("shadowsocks"), d, s))
         }
         Some(uri_identifier::Protocols::Socks) => {
-            let d = socks::data::get_data(uri);
+            let d = socks::data::get_data(uri)?;
             let s = socks::create_outbound_settings(&d);
             Ok((String::from("socks"), d, s))
         }

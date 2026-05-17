@@ -122,7 +122,7 @@ fn parse_vmess_address(raw_data: &str) -> anyhow::Result<VMessAddress> {
     };
     let address_wo_slash = raw_address.strip_suffix("/").unwrap_or(raw_address);
 
-    let parsed = address_wo_slash.parse::<Uri>().unwrap();
+    let parsed = address_wo_slash.parse::<Uri>().incorrect_uri()?;
 
     let result = VMessAddress {
         uuid: url_decode(Some(uuid)).incorrect_uri()?,
