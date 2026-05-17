@@ -191,7 +191,7 @@ fn get_uri_data(uri: &str) -> anyhow::Result<(String, RawData, OutboundSettings)
             Ok((String::from("vless"), d, s))
         }
         Some(uri_identifier::Protocols::Vmess) => {
-            let d = vmess::data::get_data(uri);
+            let d = vmess::data::get_data(uri)?;
             let s = vmess::create_outbound_settings(&d);
             Ok((String::from("vmess"), d, s))
         }
