@@ -1,11 +1,12 @@
 use crate::services::dns_client;
 use percent_encoding::percent_decode_str;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::time::Instant;
+use std::{
+    fmt::Display,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use url::{Host, Url};
 
 const UNNAMED: &'static str = "Unnamed XRay Server";
@@ -47,7 +48,7 @@ impl XRayServer {
             durations.push(duration);
         }
         if durations.is_empty() {
-            anyhow::bail!("Empty addrs list");
+            anyhow::bail!("Empty addrs list"); // unused, почему?
         }
         let mut ok_durations = durations
             .into_iter()
@@ -98,5 +99,33 @@ impl TryFrom<String> for XRayServer {
         let url = Url::parse(value.as_str())?;
         let url = XRayServer(url);
         Ok(url)
+    }
+}
+
+pub(crate) struct XRayServerWithDuration {
+    xray_server: XRayServer,
+    duration: Option<Duration>,
+}
+
+impl XRayServerWithDuration {
+    pub fn new(xray_server: XRayServer, duration: Option<Duration>) -> Self {
+        Self {
+            xray_server,
+            duration,
+        }
+    }
+}
+
+impl Display for XRayServerWithDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let server_name = self.xray_server.to_string();
+        let text = self
+            .duration
+            .map(|d| {
+                let ms = d.as_millis();
+                format!("{server_name}, {ms} ms")
+            })
+            .unwrap_or_else(|| format!("{server_name}, not accessible"));
+        f.write_str(text.as_str())
     }
 }
