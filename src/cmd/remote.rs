@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::entities::remote_decoder::RemoteDecoder;
 use crate::services::config::Config;
 use clap::{Args, ValueEnum};
@@ -18,6 +20,42 @@ pub(crate) struct RemoteParams {
 }
 
 impl RemoteParams {
+    fn confirm(prompt: &str) -> bool {
+        dialoguer::Confirm::new()
+            .with_prompt(prompt)
+            .default(false)
+            .show_default(true)
+            .report(false)
+            .interact()
+            .unwrap_or_default()
+    }
+
+    fn ask_str(prompt: &str) -> anyhow::Result<String> {
+        let result = dialoguer::Input::<String>::new()
+            .with_prompt(prompt)
+            .report(false)
+            .interact()?;
+        Ok(result)
+    }
+
+    fn ask_headers() -> anyhow::Result<Option<HashMap<String, String>>> {
+        let mut confirm_add = Self::confirm("Add custom subscription request headers?");
+        if !confirm_add {
+            return Ok(None);
+        }
+
+        let mut result = HashMap::new();
+
+        while confirm_add {
+            let key = Self::ask_str("HTTP Header name")?;
+            let value = Self::ask_str(format!("HTTP header value for \"{key}\"").as_str())?;
+            result.insert(key, value);
+            confirm_add = Self::confirm("Add more headers?");
+        }
+
+        Ok(Some(result))
+    }
+
     async fn handle_add(&self) -> anyhow::Result<()> {
         let mut config = Config::read_or_default().await;
 
@@ -41,7 +79,11 @@ impl RemoteParams {
             return Err(anyhow::Error::msg("Remote decoder does not exist"));
         };
 
-        config.add_remote(title, url, decoder).await?;
+        let custom_headers = Self::ask_headers()?;
+
+        config
+            .add_remote(title, url, decoder, custom_headers)
+            .await?;
 
         Ok(())
     }
