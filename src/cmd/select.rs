@@ -166,6 +166,7 @@ impl SelectParams {
 
         let spinner = SpinnerHandle::new("Loading servers".to_string());
         let content = Client::builder()
+            .no_proxy()
             .build()?
             .get(selected_remote.url())
             .send()
