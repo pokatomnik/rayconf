@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::entities::remote::Remote;
 use crate::entities::xray_server::{XRayServer, XRayServerWithDuration};
 use crate::services::config::Config;
+use crate::utils::spinner::SpinnerHandle;
 use crate::utils::tap::Tap;
 use crate::v2parser::entities::log::{Log, LogLevel};
 use crate::v2parser::parser::create_json_config;
@@ -37,6 +38,13 @@ pub(crate) struct SelectParams {
 
     #[arg(long, default_value_t = false, help = "Log DNS queries")]
     log_dns: bool,
+
+    #[arg(
+        long = "skip-check",
+        default_value_t = false,
+        help = "Skip servers sorting by quick TCP check"
+    )]
+    skip_perf_check: bool,
 }
 
 impl SelectParams {
@@ -103,6 +111,34 @@ impl SelectParams {
         Ok(item.url().to_string())
     }
 
+    async fn get_servers<'a>(&self, xray_servers: &'a [XRayServer]) -> Vec<XRayServerWithDuration> {
+        if self.skip_perf_check {
+            return xray_servers
+                .iter()
+                .map(|s| XRayServerWithDuration::new(s.clone(), None))
+                .collect();
+        }
+        let spinner = SpinnerHandle::new("Sorting servers".to_string());
+        let sorted = self.sort_servers(xray_servers).await;
+        spinner.stop("Done sorting servers".to_string());
+
+        sorted
+    }
+
+    fn count_stats<'a>(servers: &'a [XRayServerWithDuration]) -> (usize, usize) {
+        let mut alive = 0;
+        let mut dead = 0;
+
+        for server in servers {
+            match server.is_dead() {
+                true => dead += 1,
+                false => alive += 1,
+            }
+        }
+
+        (alive, dead)
+    }
+
     async fn select_remote(&self) -> anyhow::Result<String> {
         let config = Config::read_or_default().await;
         let remotes: Vec<Remote> = config
@@ -128,6 +164,7 @@ impl SelectParams {
             .get(remote_idx)
             .ok_or_else(|| anyhow::Error::msg("No remote URL"))?;
 
+        let spinner = SpinnerHandle::new("Loading servers".to_string());
         let content = Client::builder()
             .build()?
             .get(selected_remote.url())
@@ -142,15 +179,26 @@ impl SelectParams {
             .iter()
             .filter_map(|u| XRayServer::try_from(u.to_string()).ok())
             .collect::<Vec<XRayServer>>();
-
-        let sorted = self.sort_servers(xray_servers.as_slice()).await;
+        spinner.stop("Done loading servers".to_string());
 
         if xray_servers.is_empty() {
             return Err(anyhow::Error::msg("This URL has note XRay servers"));
         }
 
+        let sorted = self.get_servers(xray_servers.as_slice()).await;
+
+        let select_message = match self.skip_perf_check {
+            true => "Select one XRay server".to_string(),
+            false => {
+                let (accessible, dead) = Self::count_stats(sorted.as_slice());
+                format!(
+                    "Select one XRay server ({accessible} accessible, {dead} considered dead due to TCP check)"
+                )
+            }
+        };
+
         let server_idx = dialoguer::FuzzySelect::new()
-            .with_prompt("Select one XRay server")
+            .with_prompt(select_message.as_str())
             .items(&sorted)
             .tap(|d| match &xray_servers.is_empty() {
                 true => d,

@@ -11,6 +11,10 @@ use url::{Host, Url};
 
 const UNNAMED: &'static str = "Unnamed XRay Server";
 
+/// Maximum round‑trip time (in milliseconds) allowed before
+/// a server is considered dead.
+const THRESHOLD_MS: u128 = 10_000;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialOrd, PartialEq, Eq, Ord, Hash)]
 #[serde(transparent)]
 pub(crate) struct XRayServer(Url);
@@ -112,6 +116,13 @@ impl XRayServerWithDuration {
         Self {
             xray_server,
             duration,
+        }
+    }
+
+    pub fn is_dead(&self) -> bool {
+        match self.duration {
+            Some(d) => d.as_millis() > THRESHOLD_MS,
+            None => true,
         }
     }
 }
