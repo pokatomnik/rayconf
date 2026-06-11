@@ -3,7 +3,7 @@ use crate::entities::remote_decoder::RemoteDecoder;
 use crate::entities::xray_server::XRayServer;
 use crate::services::fileman::FileMan;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 static DEFAULT_CONFIG_FILE_NAME: &'static str = "rayconf.json";
 
@@ -29,8 +29,14 @@ impl Config {
         name: impl AsRef<str>,
         url: impl AsRef<str>,
         decoder: impl AsRef<RemoteDecoder>,
+        headers: Option<HashMap<String, String>>,
     ) -> anyhow::Result<()> {
-        let remote = Remote::new(name.as_ref(), url.as_ref(), decoder.as_ref().clone());
+        let remote = Remote::new(
+            name.as_ref(),
+            url.as_ref(),
+            decoder.as_ref().clone(),
+            headers,
+        );
 
         self.remotes.push(remote);
 
@@ -79,9 +85,7 @@ impl Config {
         FileMan::read_data(DEFAULT_CONFIG_FILE_NAME)
             .await
             .ok()
-            .and_then(|v| {
-                serde_json::from_slice::<Self>(v.as_ref()).ok()
-            })
+            .and_then(|v| serde_json::from_slice::<Self>(v.as_ref()).ok())
             .unwrap_or_default()
     }
 

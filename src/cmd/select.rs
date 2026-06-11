@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 use crate::entities::remote::Remote;
@@ -11,6 +12,7 @@ use crate::v2parser::entities::log::{Log, LogLevel};
 use crate::v2parser::parser::create_json_config;
 use clap::Args;
 use futures::{StreamExt, stream};
+use http::{HeaderName, HeaderValue};
 use reqwest::Client;
 
 static DEFAULT_HTTP_PORT: u16 = 8080;
@@ -165,14 +167,25 @@ impl SelectParams {
             .ok_or_else(|| anyhow::Error::msg("No remote URL"))?;
 
         let spinner = SpinnerHandle::new("Loading servers".to_string());
-        let content = Client::builder()
-            .no_proxy()
-            .build()?
-            .get(selected_remote.url())
-            .send()
-            .await?
-            .text()
-            .await?;
+        let client = Client::builder().no_proxy().build()?;
+
+        let mut client = client.get(selected_remote.url());
+        client = match selected_remote.headers() {
+            None => client,
+            Some(headers) => {
+                for (key, value) in headers.iter() {
+                    client = client.header(
+                        HeaderName::from_str(key.as_str())?,
+                        HeaderValue::from_str(value.as_str())?,
+                    );
+                }
+                client
+            }
+        };
+
+        println!("{:#?}", client);
+
+        let content = client.send().await?.text().await?;
 
         let xray_servers = selected_remote
             .decoder()
